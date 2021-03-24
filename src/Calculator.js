@@ -90,7 +90,7 @@ function round2(num) {
   return +(Math.round(num + "e+2") + "e-2");
 }
 
-function Result({ label, errors, values, calculate }) {
+function Result({ label, errors, values, calculate, validate }) {
   const waitingOn = Object.keys(values).reduce((acc, key) => {
     const value = values[key];
     if (
@@ -106,13 +106,26 @@ function Result({ label, errors, values, calculate }) {
 
   return (
     <p>
-      {label}:{" "}
+      <strong>{label}</strong>{" "}
       {waitingOn.length ? (
         <span className="text-grey">
           Waiting on {waitingOn.map((k) => labels[k]).join(", ")}
         </span>
       ) : (
-        round2(calculate(values))
+        (() => {
+          const result = round2(calculate(values));
+          const bad = validate(result);
+          return (
+            <>
+              {result}&nbsp;
+              {bad ? (
+                <span className="text-error">✗ Out of range</span>
+              ) : (
+                <span className="text-success">✓ Ok</span>
+              )}
+            </>
+          );
+        })()
       )}
     </p>
   );
@@ -197,13 +210,18 @@ function Calculator() {
       </div>
       <h2>Fixture Setup</h2>
       <Result
-        label="ST-HT Angle"
+        label="ST-HT angle"
         errors={errors}
         values={{ hta: watch("hta"), sta: watch("sta") }}
         calculate={({ hta, sta }) => sta - hta}
+        validate={(v) => (v < -10 ? true : v > 10 ? true : false)}
       />
       <Result
-        label="HTX"
+        label={
+          <>
+            HT<sub>X</sub>
+          </>
+        }
         errors={errors}
         values={{
           hta: watch("hta"),
@@ -214,9 +232,14 @@ function Calculator() {
           Math.sqrt(Math.pow(stack, 2), Math.pow(reach, 2)) *
           Math.sin(degToRad(180) - degToRad(hta) - Math.atan(stack / reach))
         }
+        validate={(v) => false} // TODO
       />
       <Result
-        label="HTY"
+        label={
+          <>
+            HT<sub>Y</sub>
+          </>
+        }
         errors={errors}
         values={{
           hta: watch("hta"),
@@ -229,9 +252,14 @@ function Calculator() {
             Math.cos(degToRad(180) - degToRad(hta) - Math.atan(stack / reach)) -
           htlength
         }
+        validate={(v) => false} // TODO
       />
       <Result
-        label="DAX"
+        label={
+          <>
+            DA<sub>X</sub>
+          </>
+        }
         errors={errors}
         values={{
           hta: watch("hta"),
@@ -242,9 +270,14 @@ function Calculator() {
           cslength *
           Math.cos(degToRad(90) - degToRad(hta) - Math.asin(bbdrop / cslength))
         }
+        validate={(v) => false} // TODO
       />
       <Result
-        label="DAY"
+        label={
+          <>
+            DA<sub>Y</sub>
+          </>
+        }
         errors={errors}
         values={{
           hta: watch("hta"),
@@ -255,6 +288,7 @@ function Calculator() {
           cslength *
           Math.sin(degToRad(90) - degToRad(hta) - Math.asin(bbdrop / cslength))
         }
+        validate={(v) => false} // TODO
       />
     </form>
   );
