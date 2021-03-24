@@ -1,0 +1,24 @@
+@import "~chota/src/chota.css";
+
+:root {
+  --color-primary: #5d9273;
+}
+
+.Sticky-outer {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.Sticky-expand {
+  flex: 1;
+}
+
+.App-header {
+  margin-bottom: 1.5em;
+}
+
+.App-footer {
+  background-color: #fafafa;
+  padding: 2em;
+}

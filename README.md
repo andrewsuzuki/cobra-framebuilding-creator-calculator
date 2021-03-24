@@ -1,3 +1,3 @@
 # Cobra Framebuilding Creator Frame Fixture Setup Calculator
 
-The [Cobra Framebuilding Creator](https://cobraframebuilding.com/store/the-creator-frame-fixture) sets up a bit different than most other bicycle frame fixtures. The head tube is always perpendicular to the main piece of extrusion, and there is only one angle adjustment (ST-HT). To calculate the setup variables from the more-common variables (stack, reach, etc), you have to do a bit of trig.
+The [Cobra Framebuilding Creator](https://cobraframebuilding.com/store/the-creator-frame-fixture) sets up a bit different than most other bicycle frame fixtures. The head tube is always perpendicular to the main piece of extrusion, and there is only one angle adjustment (STA-HTA). To calculate the setup variables from the more-common variables (stack, reach, etc), you have to do a bit of trig.
