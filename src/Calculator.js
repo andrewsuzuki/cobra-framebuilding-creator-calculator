@@ -3,6 +3,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import classNames from "classnames";
 import { useEffect } from "react";
+import frameExamples from "./frame-examples.json";
 
 // Constants
 // Limits are inclusive unless noted.
@@ -162,8 +163,43 @@ function degToRad(degrees) {
   return degrees * (Math.PI / 180);
 }
 
+function getFrameExampleVariables(i) {
+  const [
+    // eslint-disable-next-line no-unused-vars
+    _name,
+    hta,
+    sta,
+    stack,
+    reach,
+    cslength,
+    bbdrop,
+    htlength,
+  ] = frameExamples[i];
+  return { hta, sta, stack, reach, cslength, bbdrop, htlength };
+}
+
+function SelectExample({ onSelect }) {
+  return (
+    <p>
+      <label htmlFor="frame-example">Examples</label>
+      <select
+        id="frame-example"
+        value=""
+        onChange={(e) => onSelect(getFrameExampleVariables(e.target.value))}
+      >
+        <option value="">---</option>
+        {frameExamples.map(([name], i) => (
+          <option key={i} value={i}>
+            {name}
+          </option>
+        ))}
+      </select>
+    </p>
+  );
+}
+
 function Calculator() {
-  const { register, watch, errors, trigger } = useForm({
+  const { register, watch, errors, trigger, setValue } = useForm({
     mode: "all",
     resolver: yupResolver(basicInputSchema),
   });
@@ -182,6 +218,11 @@ function Calculator() {
   return (
     <form>
       <h2>Basic Inputs</h2>
+      <SelectExample
+        onSelect={(fex) => {
+          Object.keys(fex).forEach((k) => setValue(k, fex[k]));
+        }}
+      />
       <div className="row">
         <div className="col-6">
           <InputField
