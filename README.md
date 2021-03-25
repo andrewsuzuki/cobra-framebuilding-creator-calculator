@@ -4,7 +4,7 @@ The [Cobra Framebuilding Creator](https://cobraframebuilding.com/store/the-creat
 
 ## Links
 
-[Demo](https://andrewsuzuki.github.io/cobra-framebuilding-creator-calculator)
+[Demo](https://cobra-creator-fixture-calculator.netlify.app)
 
 ## Credits
 
