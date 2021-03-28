@@ -5,6 +5,8 @@ import classNames from "classnames";
 import { useEffect, useState } from "react";
 import frameExamples from "./frame-examples.json";
 
+// TODO copy common values over when mode changes (fork/lhsh)
+
 // Constants
 // Primary dimensions modes
 const PDM_STACK_REACH = "PDM_STACK_REACH";
@@ -76,11 +78,11 @@ const basicInputSchema = yup.object().shape({
     .number()
     .transform(emptyStringToNull)
     .nullable()
-    .absMax(yup.ref("cslength")),
+    .absMax(yup.ref("cslength"))
+    .absMax(yup.ref("frontcenter")),
   cslength: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   stack: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   reach: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
-  // TODO new pdms
   frontcenter: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   etttaiwanese: yup
     .number()
@@ -90,7 +92,14 @@ const basicInputSchema = yup.object().shape({
   etttt: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   htttoffset: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   forklength: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
-  forkoffset: yup.number().transform(emptyStringToNull).nullable(),
+  isac: yup.boolean().nullable(),
+  forkoffset: yup
+    .number()
+    .transform(emptyStringToNull)
+    .nullable()
+    .when("isac", (isac, schema) =>
+      isac ? schema.absMax(yup.ref("forklength")) : schema
+    ),
   lhsh: yup.number().min(0).transform(emptyStringToNull).nullable(),
 });
 
@@ -141,10 +150,6 @@ function degToRad(degrees) {
 }
 
 function htaStackReachToHtx(hta, stack, reach) {
-  // ALTERNATE FORM (assuming positive)
-  // return (
-  //   stack * Math.cos(degToRad(hta)) + reach * Math.sin(degToRad(hta))
-  // );
   return (
     Math.sqrt(Math.pow(stack, 2) + Math.pow(reach, 2)) *
     Math.sin(degToRad(180 - hta) - Math.atan(stack / reach))
@@ -157,6 +162,13 @@ function htaHtlStackReachToHty(hta, htlength, stack, reach) {
       Math.cos(degToRad(180 - hta) - Math.atan(stack / reach)) -
     htlength
   );
+}
+
+function correctForkLength(forklength, forkoffset, isac) {
+  // if isac (is axle-to-crown), find true fork length along steering axis
+  return isac
+    ? Math.sqrt(Math.pow(forklength, 2) - Math.pow(forkoffset, 2))
+    : forklength;
 }
 
 const labels = {
@@ -180,7 +192,7 @@ function InputField({ errors, register, name, errorMessage }) {
   const errorMaybe = errors[name];
 
   return (
-    <p>
+    <p className="param">
       <label
         htmlFor={name}
         className={classNames({ "text-error": errorMaybe })}
@@ -206,18 +218,20 @@ function round2(num) {
 }
 
 function Result({ label, errors, values, calculate, validate }) {
-  const waitingOn = Object.keys(values).reduce((acc, key) => {
-    const value = values[key];
-    if (
-      typeof value === "undefined" ||
-      value === null ||
-      value === "" ||
-      errors[key]
-    ) {
-      return [...acc, key];
-    }
-    return acc;
-  }, []);
+  const waitingOn = Object.keys(values)
+    .filter((k) => k !== "isac")
+    .reduce((acc, key) => {
+      const value = values[key];
+      if (
+        typeof value === "undefined" ||
+        value === null ||
+        value === "" ||
+        errors[key]
+      ) {
+        return [...acc, key];
+      }
+      return acc;
+    }, []);
 
   return (
     <p>
@@ -291,19 +305,29 @@ function Calculator() {
     resolver: yupResolver(basicInputSchema),
   });
 
-  // Trigger bbdrop validation when cslength (dependency) changes
+  // Trigger bbdrop validation when cslength or frontcenter (dependencies) change
   const cslength = watch("cslength");
+  const frontcenter = watch("frontcenter");
   useEffect(() => {
     trigger("bbdrop");
-  }, [trigger, cslength]);
+  }, [trigger, cslength, frontcenter]);
+
+  // Do the same for forkoffset when forklength or isac change
+  const isac = watch("isac");
+  const forklength = watch("forklength");
+  useEffect(() => {
+    trigger("forkoffset");
+  }, [trigger, isac, forklength]);
 
   const htlength = watch("htlength");
 
   const valuesMap = (...fields) =>
-    fields.reduce((acc, field) => {
-      const v = watch(field);
-      return { ...acc, [field]: v ? parseFloat(v) : null };
-    }, {});
+    fields
+      .filter((x) => x)
+      .reduce((acc, field) => {
+        const v = watch(field);
+        return { ...acc, [field]: v && field !== "isac" ? parseFloat(v) : v };
+      }, {});
 
   function setPdmAndClearFields(value) {
     // Update pdm
@@ -320,11 +344,12 @@ function Calculator() {
       "forkoffset",
       "lhsh",
     ].forEach((k) => setValue(k, ""));
+    setValue("isac", false); // debatable whether this should be reset
   }
 
   return (
     <form>
-      <h2>Basic Inputs</h2>
+      <h2>Frame Geometry</h2>
       <SelectExample
         onSelect={(fex) => {
           setPdmAndClearFields(PDM_STACK_REACH);
@@ -375,7 +400,7 @@ function Calculator() {
                 ETT Taiwanese (at top of HT), fork, headset
               </option>
               <option value={PDM_ETT_TT}>
-                ETT (at HT-TT junction), frame offset, fork, headset
+                ETT (at HT-TT junction), HT-TT offset, fork, headset
               </option>
             </select>
           </p>
@@ -449,6 +474,10 @@ function Calculator() {
                 errors={errors}
                 register={register}
               />
+              <label>
+                <input type="checkbox" name="isac" ref={register} />{" "}
+                Axle-to-crown?
+              </label>
             </div>
             <div className="col-4">
               <InputField
@@ -481,7 +510,9 @@ function Calculator() {
         <div className="col-4">
           <InputField
             name="bbdrop"
-            errorMessage="Must be a number that is less than or equal to CS length in magnitude"
+            errorMessage={`Must be a number that is less than or equal to CS length${
+              pdm === PDM_FRONT_CENTER ? " and front center" : ""
+            } in magnitude`}
             errors={errors}
             register={register}
           />
@@ -516,6 +547,7 @@ function Calculator() {
                 "htlength",
                 "etttaiwanese",
                 "forklength",
+                "isac",
                 "forkoffset",
                 "lhsh",
                 "bbdrop"
@@ -528,6 +560,7 @@ function Calculator() {
                 "etttt",
                 "htttoffset",
                 "forklength",
+                "isac",
                 "forkoffset",
                 "lhsh",
                 "bbdrop"
@@ -554,13 +587,17 @@ function Calculator() {
               htlength,
               etttaiwanese,
               forklength,
+              isac,
               forkoffset,
               lhsh,
               bbdrop,
             } = values;
             const h = degToRad(hta);
             const stack =
-              (htlength + forklength + lhsh) * Math.sin(h) -
+              (htlength +
+                correctForkLength(forklength, forkoffset, isac) +
+                lhsh) *
+                Math.sin(h) -
               forkoffset * Math.cos(h) +
               bbdrop;
             const reach = etttaiwanese - stack * Math.tan(degToRad(90 - sta));
@@ -572,13 +609,18 @@ function Calculator() {
               etttt,
               htttoffset,
               forklength,
+              isac,
               forkoffset,
               lhsh,
               bbdrop,
             } = values;
             const h = degToRad(hta);
             const stackToHtTt =
-              (htlength - htttoffset + forklength + lhsh) * Math.sin(h) -
+              (htlength -
+                htttoffset +
+                correctForkLength(forklength, forkoffset, isac) +
+                lhsh) *
+                Math.sin(h) -
               forkoffset * Math.cos(h) +
               bbdrop;
             const reachToHtTt =
@@ -599,7 +641,15 @@ function Calculator() {
           pdm === PDM_STACK_REACH
             ? valuesMap("hta", "htlength", "stack", "reach")
             : pdm === PDM_FRONT_CENTER
-            ? valuesMap("hta", "frontcenter", "forklength", "lhsh", "bbdrop")
+            ? valuesMap(
+                "hta",
+                "frontcenter",
+                "forklength",
+                "isac",
+                isac ? "forkoffset" : null,
+                "lhsh",
+                "bbdrop"
+              )
             : pdm === PDM_ETT_TAIWANESE
             ? valuesMap(
                 "hta",
@@ -607,6 +657,7 @@ function Calculator() {
                 "htlength",
                 "etttaiwanese",
                 "forklength",
+                "isac",
                 "forkoffset",
                 "lhsh",
                 "bbdrop"
@@ -619,6 +670,7 @@ function Calculator() {
                 "etttt",
                 "htttoffset",
                 "forklength",
+                "isac",
                 "forkoffset",
                 "lhsh",
                 "bbdrop"
@@ -632,57 +684,69 @@ function Calculator() {
             const { htlength, stack, reach } = values;
             return htaHtlStackReachToHty(hta, htlength, stack, reach);
           } else if (pdm === PDM_FRONT_CENTER) {
-            const { frontcenter, forklength, lhsh, bbdrop } = values;
+            const {
+              frontcenter,
+              forklength,
+              isac,
+              forkoffset = undefined,
+              lhsh,
+              bbdrop,
+            } = values;
             const h = degToRad(hta);
             return (
-              forklength +
+              correctForkLength(forklength, forkoffset, isac) +
               lhsh -
               (Math.sqrt(Math.pow(frontcenter, 2) - Math.pow(bbdrop, 2)) *
                 Math.cos(h) -
                 bbdrop * Math.sin(h))
             );
           } else if (pdm === PDM_ETT_TAIWANESE) {
-            // TODO forkoffset shouldn't be necessary
             const {
               sta,
               htlength,
               etttaiwanese,
               forklength,
+              isac,
               forkoffset,
               lhsh,
               bbdrop,
             } = values;
             const h = degToRad(hta);
             const stack =
-              (htlength + forklength + lhsh) * Math.sin(h) -
+              (htlength +
+                correctForkLength(forklength, forkoffset, isac) +
+                lhsh) *
+                Math.sin(h) -
               forkoffset * Math.cos(h) +
               bbdrop;
             const reach = etttaiwanese - stack * Math.tan(degToRad(90 - sta));
             return htaHtlStackReachToHty(hta, htlength, stack, reach);
           } else if (pdm === PDM_ETT_TT) {
-            // TODO forkoffset shouldn't be necessary
             const {
               sta,
               htlength,
               etttt,
               htttoffset,
               forklength,
+              isac,
               forkoffset,
               lhsh,
               bbdrop,
             } = values;
             const h = degToRad(hta);
             const stackToHtTt =
-              (htlength - htttoffset + forklength + lhsh) * Math.sin(h) -
+              (htlength -
+                htttoffset +
+                correctForkLength(forklength, forkoffset, isac) +
+                lhsh) *
+                Math.sin(h) -
               forkoffset * Math.cos(h) +
               bbdrop;
             const reachToHtTt =
               etttt - stackToHtTt * Math.tan(degToRad(90 - sta));
-            return htaHtlStackReachToHty(
-              hta,
-              htlength,
-              stackToHtTt,
-              reachToHtTt
+            return (
+              htaHtlStackReachToHty(hta, htlength, stackToHtTt, reachToHtTt) +
+              htttoffset
             );
           }
         }}
