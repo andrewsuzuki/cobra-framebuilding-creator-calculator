@@ -2,11 +2,16 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import classNames from "classnames";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import frameExamples from "./frame-examples.json";
 
 // Constants
-// Limits are inclusive unless noted.
+// Primary dimensions modes
+const PDM_STACK_REACH = "PDM_STACK_REACH";
+const PDM_FRONT_CENTER = "PDM_FRONT_CENTER";
+const PDM_ETT_TAIWANESE = "PDM_ETT_TAIWANESE";
+const PDM_ETT_TT = "PDM_ETT_TT";
+// Fixture limits (inclusive unless otherwise noted)
 const MIN_ST_HT_ANGLE = -10;
 const MAX_ST_HT_ANGLE = 10;
 const MIN_HTX = 80;
@@ -62,6 +67,11 @@ const basicInputSchema = yup.object().shape({
     .lessThan(180)
     .transform(emptyStringToNull)
     .nullable(),
+  htlength: yup
+    .number()
+    .min(MIN_HT_LENGTH_LARGEST)
+    .transform(emptyStringToNull)
+    .nullable(),
   bbdrop: yup
     .number()
     .transform(emptyStringToNull)
@@ -70,21 +80,100 @@ const basicInputSchema = yup.object().shape({
   cslength: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   stack: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
   reach: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
-  htlength: yup
+  // TODO new pdms
+  frontcenter: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
+  etttaiwanese: yup
     .number()
-    .min(MIN_HT_LENGTH_LARGEST)
+    .moreThan(0)
     .transform(emptyStringToNull)
     .nullable(),
+  etttt: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
+  htttoffset: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
+  forklength: yup.number().moreThan(0).transform(emptyStringToNull).nullable(),
+  forkoffset: yup.number().transform(emptyStringToNull).nullable(),
+  lhsh: yup.number().min(0).transform(emptyStringToNull).nullable(),
 });
+
+function toTitleCase(str) {
+  const lowers = [
+    "A",
+    "An",
+    "The",
+    "And",
+    "But",
+    "Or",
+    "For",
+    "Nor",
+    "As",
+    "At",
+    "By",
+    "For",
+    "From",
+    "In",
+    "Into",
+    "Near",
+    "Of",
+    "On",
+    "Onto",
+    "To",
+    "With",
+  ];
+
+  const uppers = ["Ht", "Tt", "St", "Ett", "Bb", "Cs"];
+
+  return uppers.reduce(
+    (s, upper) =>
+      s.replace(new RegExp("\\b" + upper + "\\b", "g"), upper.toUpperCase()),
+    lowers.reduce(
+      (s, lower) =>
+        s.replace(new RegExp("\\s" + lower + "\\s", "g"), function (txt) {
+          return txt.toLowerCase();
+        }),
+      str.replace(/([^\W_]+[^\s-]*) */g, function (txt) {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      })
+    )
+  );
+}
+
+function degToRad(degrees) {
+  return degrees * (Math.PI / 180);
+}
+
+function htaStackReachToHtx(hta, stack, reach) {
+  // ALTERNATE FORM (assuming positive)
+  // return (
+  //   stack * Math.cos(degToRad(hta)) + reach * Math.sin(degToRad(hta))
+  // );
+  return (
+    Math.sqrt(Math.pow(stack, 2) + Math.pow(reach, 2)) *
+    Math.sin(degToRad(180 - hta) - Math.atan(stack / reach))
+  );
+}
+
+function htaHtlStackReachToHty(hta, htlength, stack, reach) {
+  return (
+    Math.sqrt(Math.pow(stack, 2) + Math.pow(reach, 2)) *
+      Math.cos(degToRad(180 - hta) - Math.atan(stack / reach)) -
+    htlength
+  );
+}
 
 const labels = {
   hta: "HT angle",
   sta: "ST angle",
+  htlength: "HT length",
   cslength: "CS length",
   bbdrop: "BB drop",
   stack: "stack",
   reach: "reach",
-  htlength: "HT length",
+  frontcenter: "front center",
+  etttaiwanese: "ETT Taiwanese (at HT top)",
+  etttt: "ETT (at HT-TT junction)",
+  htttoffset: "offset from HT top to TT centerline",
+  forklength: "fork length",
+  forkoffset: "fork offset",
+  lhsh: "lower headset stack height",
 };
 
 function InputField({ errors, register, name, errorMessage }) {
@@ -94,9 +183,9 @@ function InputField({ errors, register, name, errorMessage }) {
     <p>
       <label
         htmlFor={name}
-        className={classNames("text-capitalize", { "text-error": errorMaybe })}
+        className={classNames({ "text-error": errorMaybe })}
       >
-        {labels[name]}
+        {toTitleCase(labels[name])}
       </label>
       <input
         type="text"
@@ -159,23 +248,19 @@ function Result({ label, errors, values, calculate, validate }) {
   );
 }
 
-function degToRad(degrees) {
-  return degrees * (Math.PI / 180);
-}
-
 function getFrameExampleVariables(i) {
   const [
     // eslint-disable-next-line no-unused-vars
     _name,
     hta,
     sta,
+    htlength,
     stack,
     reach,
     cslength,
     bbdrop,
-    htlength,
   ] = frameExamples[i];
-  return { hta, sta, stack, reach, cslength, bbdrop, htlength };
+  return { hta, sta, htlength, stack, reach, cslength, bbdrop };
 }
 
 function SelectExample({ onSelect }) {
@@ -199,6 +284,8 @@ function SelectExample({ onSelect }) {
 }
 
 function Calculator() {
+  const [pdm, setPdm] = useState(PDM_STACK_REACH);
+
   const { register, watch, errors, trigger, setValue } = useForm({
     mode: "all",
     resolver: yupResolver(basicInputSchema),
@@ -213,18 +300,39 @@ function Calculator() {
   const htlength = watch("htlength");
 
   const valuesMap = (...fields) =>
-    fields.reduce((acc, field) => ({ [field]: watch(field), ...acc }), {});
+    fields.reduce((acc, field) => {
+      const v = watch(field);
+      return { ...acc, [field]: v ? parseFloat(v) : null };
+    }, {});
+
+  function setPdmAndClearFields(value) {
+    // Update pdm
+    setPdm(value);
+    // Clear all related fields
+    [
+      "stack",
+      "reach",
+      "frontcenter",
+      "etttaiwanese",
+      "etttt",
+      "htttoffset",
+      "forklength",
+      "forkoffset",
+      "lhsh",
+    ].forEach((k) => setValue(k, ""));
+  }
 
   return (
     <form>
       <h2>Basic Inputs</h2>
       <SelectExample
         onSelect={(fex) => {
+          setPdmAndClearFields(PDM_STACK_REACH);
           Object.keys(fex).forEach((k) => setValue(k, fex[k]));
         }}
       />
       <div className="row">
-        <div className="col-6">
+        <div className="col-4">
           <InputField
             name="hta"
             errorMessage="Must be a reasonable number in degrees"
@@ -232,7 +340,7 @@ function Calculator() {
             register={register}
           />
         </div>
-        <div className="col-6">
+        <div className="col-4">
           <InputField
             name="sta"
             errorMessage="Must be a reasonable number in degrees"
@@ -240,27 +348,129 @@ function Calculator() {
             register={register}
           />
         </div>
-      </div>
-      <div className="row">
-        <div className="col-6">
+        <div className="col-4">
           <InputField
-            name="stack"
-            errorMessage="Must be a positive number"
-            errors={errors}
-            register={register}
-          />
-        </div>
-        <div className="col-6">
-          <InputField
-            name="reach"
-            errorMessage="Must be a positive number"
+            name="htlength"
+            errorMessage={`Must be a positive number greater than or equal to ${MIN_HT_LENGTH_LARGEST}`}
             errors={errors}
             register={register}
           />
         </div>
       </div>
       <div className="row">
-        <div className="col-6">
+        <div className="col-4">
+          <p>
+            <label htmlFor="pdm">Primary Dimensions Mode</label>
+            <select
+              id="pdm"
+              name="pdm"
+              value={pdm}
+              onChange={(e) => setPdmAndClearFields(e.target.value)}
+            >
+              <option value={PDM_STACK_REACH}>Stack, reach</option>
+              <option value={PDM_FRONT_CENTER}>
+                Front center, fork, headset
+              </option>
+              <option value={PDM_ETT_TAIWANESE}>
+                ETT Taiwanese (at top of HT), fork, headset
+              </option>
+              <option value={PDM_ETT_TT}>
+                ETT (at HT-TT junction), frame offset, fork, headset
+              </option>
+            </select>
+          </p>
+        </div>
+        {pdm === PDM_STACK_REACH && (
+          <>
+            <div className="col-4">
+              <InputField
+                name="stack"
+                errorMessage="Must be a positive number"
+                errors={errors}
+                register={register}
+              />
+            </div>
+            <div className="col-4">
+              <InputField
+                name="reach"
+                errorMessage="Must be a positive number"
+                errors={errors}
+                register={register}
+              />
+            </div>
+          </>
+        )}
+        {pdm === PDM_FRONT_CENTER && (
+          <div className="col-4">
+            <InputField
+              name="frontcenter"
+              errorMessage="Must be a positive number"
+              errors={errors}
+              register={register}
+            />
+          </div>
+        )}
+        {pdm === PDM_ETT_TAIWANESE && (
+          <div className="col-4">
+            <InputField
+              name="etttaiwanese"
+              errorMessage="Must be a positive number"
+              errors={errors}
+              register={register}
+            />
+          </div>
+        )}
+        {pdm === PDM_ETT_TT && (
+          <>
+            <div className="col-4">
+              <InputField
+                name="etttt"
+                errorMessage="Must be a positive number"
+                errors={errors}
+                register={register}
+              />
+            </div>
+            <div className="col-4">
+              <InputField
+                name="htttoffset"
+                errorMessage="Must be a positive number"
+                errors={errors}
+                register={register}
+              />
+            </div>
+          </>
+        )}
+        {pdm !== PDM_STACK_REACH && (
+          <>
+            <div className="col-4">
+              <InputField
+                name="forklength"
+                errorMessage="Must be a positive number"
+                errors={errors}
+                register={register}
+              />
+            </div>
+            <div className="col-4">
+              <InputField
+                name="forkoffset"
+                errorMessage="Must be a number"
+                errors={errors}
+                register={register}
+              />
+            </div>
+            <div className="col-4">
+              <InputField
+                name="lhsh"
+                errorMessage="Must be a positive number or zero"
+                errors={errors}
+                register={register}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      <div className="row">
+        <div className="col-4">
           <InputField
             name="cslength"
             errorMessage="Must be a positive number"
@@ -268,20 +478,10 @@ function Calculator() {
             register={register}
           />
         </div>
-        <div className="col-6">
+        <div className="col-4">
           <InputField
             name="bbdrop"
             errorMessage="Must be a number that is less than or equal to CS length in magnitude"
-            errors={errors}
-            register={register}
-          />
-        </div>
-      </div>
-      <div className="row">
-        <div className="col-6">
-          <InputField
-            name="htlength"
-            errorMessage={`Must be a positive number greater than or equal to ${MIN_HT_LENGTH_LARGEST}`}
             errors={errors}
             register={register}
           />
@@ -304,11 +504,88 @@ function Calculator() {
           </>
         }
         errors={errors}
-        values={valuesMap("hta", "stack", "reach")}
-        calculate={({ hta, stack, reach }) =>
-          Math.sqrt(Math.pow(stack, 2) + Math.pow(reach, 2)) *
-          Math.sin(degToRad(180) - degToRad(hta) - Math.atan(stack / reach))
+        values={
+          pdm === PDM_STACK_REACH
+            ? valuesMap("hta", "stack", "reach")
+            : pdm === PDM_FRONT_CENTER
+            ? valuesMap("hta", "frontcenter", "forkoffset", "bbdrop")
+            : pdm === PDM_ETT_TAIWANESE
+            ? valuesMap(
+                "hta",
+                "sta",
+                "htlength",
+                "etttaiwanese",
+                "forklength",
+                "forkoffset",
+                "lhsh",
+                "bbdrop"
+              )
+            : pdm === PDM_ETT_TT
+            ? valuesMap(
+                "hta",
+                "sta",
+                "htlength",
+                "etttt",
+                "htttoffset",
+                "forklength",
+                "forkoffset",
+                "lhsh",
+                "bbdrop"
+              )
+            : {}
         }
+        calculate={(values) => {
+          const { hta } = values;
+
+          if (pdm === PDM_STACK_REACH) {
+            const { stack, reach } = values;
+            return htaStackReachToHtx(hta, stack, reach);
+          } else if (pdm === PDM_FRONT_CENTER) {
+            const { frontcenter, bbdrop, forkoffset } = values;
+            return (
+              Math.sin(degToRad(hta)) *
+                Math.sqrt(Math.pow(frontcenter, 2) - Math.pow(bbdrop, 2)) +
+              bbdrop * Math.cos(degToRad(hta)) -
+              forkoffset
+            );
+          } else if (pdm === PDM_ETT_TAIWANESE) {
+            const {
+              sta,
+              htlength,
+              etttaiwanese,
+              forklength,
+              forkoffset,
+              lhsh,
+              bbdrop,
+            } = values;
+            const h = degToRad(hta);
+            const stack =
+              (htlength + forklength + lhsh) * Math.sin(h) -
+              forkoffset * Math.cos(h) +
+              bbdrop;
+            const reach = etttaiwanese - stack * Math.tan(degToRad(90 - sta));
+            return htaStackReachToHtx(hta, stack, reach);
+          } else if (pdm === PDM_ETT_TT) {
+            const {
+              sta,
+              htlength,
+              etttt,
+              htttoffset,
+              forklength,
+              forkoffset,
+              lhsh,
+              bbdrop,
+            } = values;
+            const h = degToRad(hta);
+            const stackToHtTt =
+              (htlength - htttoffset + forklength + lhsh) * Math.sin(h) -
+              forkoffset * Math.cos(h) +
+              bbdrop;
+            const reachToHtTt =
+              etttt - stackToHtTt * Math.tan(degToRad(90 - sta));
+            return htaStackReachToHtx(hta, stackToHtTt, reachToHtTt);
+          }
+        }}
         validate={(v) => v < MIN_HTX || v > MAX_HTX}
       />
       <Result
@@ -318,12 +595,97 @@ function Calculator() {
           </>
         }
         errors={errors}
-        values={valuesMap("hta", "stack", "reach", "htlength")}
-        calculate={({ hta, stack, reach, htlength }) =>
-          Math.sqrt(Math.pow(stack, 2) + Math.pow(reach, 2)) *
-            Math.cos(degToRad(180) - degToRad(hta) - Math.atan(stack / reach)) -
-          htlength
+        values={
+          pdm === PDM_STACK_REACH
+            ? valuesMap("hta", "htlength", "stack", "reach")
+            : pdm === PDM_FRONT_CENTER
+            ? valuesMap("hta", "frontcenter", "forklength", "lhsh", "bbdrop")
+            : pdm === PDM_ETT_TAIWANESE
+            ? valuesMap(
+                "hta",
+                "sta",
+                "htlength",
+                "etttaiwanese",
+                "forklength",
+                "forkoffset",
+                "lhsh",
+                "bbdrop"
+              )
+            : pdm === PDM_ETT_TT
+            ? valuesMap(
+                "hta",
+                "sta",
+                "htlength",
+                "etttt",
+                "htttoffset",
+                "forklength",
+                "forkoffset",
+                "lhsh",
+                "bbdrop"
+              )
+            : {}
         }
+        calculate={(values) => {
+          const { hta } = values;
+
+          if (pdm === PDM_STACK_REACH) {
+            const { htlength, stack, reach } = values;
+            return htaHtlStackReachToHty(hta, htlength, stack, reach);
+          } else if (pdm === PDM_FRONT_CENTER) {
+            const { frontcenter, forklength, lhsh, bbdrop } = values;
+            const h = degToRad(hta);
+            return (
+              forklength +
+              lhsh -
+              (Math.sqrt(Math.pow(frontcenter, 2) - Math.pow(bbdrop, 2)) *
+                Math.cos(h) -
+                bbdrop * Math.sin(h))
+            );
+          } else if (pdm === PDM_ETT_TAIWANESE) {
+            // TODO forkoffset shouldn't be necessary
+            const {
+              sta,
+              htlength,
+              etttaiwanese,
+              forklength,
+              forkoffset,
+              lhsh,
+              bbdrop,
+            } = values;
+            const h = degToRad(hta);
+            const stack =
+              (htlength + forklength + lhsh) * Math.sin(h) -
+              forkoffset * Math.cos(h) +
+              bbdrop;
+            const reach = etttaiwanese - stack * Math.tan(degToRad(90 - sta));
+            return htaHtlStackReachToHty(hta, htlength, stack, reach);
+          } else if (pdm === PDM_ETT_TT) {
+            // TODO forkoffset shouldn't be necessary
+            const {
+              sta,
+              htlength,
+              etttt,
+              htttoffset,
+              forklength,
+              forkoffset,
+              lhsh,
+              bbdrop,
+            } = values;
+            const h = degToRad(hta);
+            const stackToHtTt =
+              (htlength - htttoffset + forklength + lhsh) * Math.sin(h) -
+              forkoffset * Math.cos(h) +
+              bbdrop;
+            const reachToHtTt =
+              etttt - stackToHtTt * Math.tan(degToRad(90 - sta));
+            return htaHtlStackReachToHty(
+              hta,
+              htlength,
+              stackToHtTt,
+              reachToHtTt
+            );
+          }
+        }}
         validate={(v) => {
           if (v < MIN_HTY || v > MAX_HTY) {
             return true;
