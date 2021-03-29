@@ -5,8 +5,6 @@ import classNames from "classnames";
 import { useEffect, useState } from "react";
 import frameExamples from "./frame-examples.json";
 
-// TODO copy common values over when mode changes (fork/lhsh)
-
 // Constants
 // Primary dimensions modes
 const PDM_STACK_REACH = "PDM_STACK_REACH";
@@ -330,9 +328,18 @@ function Calculator() {
       }, {});
 
   function setPdmAndClearFields(value) {
+    const forkAndHeadsetFields = ["forklength", "isac", "forkoffset", "lhsh"];
+    const pdmDepFields = {
+      [PDM_STACK_REACH]: ["stack", "reach"],
+      [PDM_FRONT_CENTER]: ["frontcenter", ...forkAndHeadsetFields],
+      [PDM_ETT_TAIWANESE]: ["etttaiwanese", ...forkAndHeadsetFields],
+      [PDM_ETT_TT]: ["etttt", "htttoffset", ...forkAndHeadsetFields],
+    };
+    const newFields = pdmDepFields[value];
+
     // Update pdm
     setPdm(value);
-    // Clear all related fields
+    // Clear all primary-dimension fields that aren't used in the new mode
     [
       "stack",
       "reach",
@@ -341,10 +348,14 @@ function Calculator() {
       "etttt",
       "htttoffset",
       "forklength",
+      "isac",
       "forkoffset",
       "lhsh",
-    ].forEach((k) => setValue(k, ""));
-    setValue("isac", false); // debatable whether this should be reset
+    ].forEach((field) => {
+      if (!newFields.includes(field)) {
+        setValue(field, field === "isac" ? false : "");
+      }
+    });
   }
 
   return (
@@ -476,13 +487,17 @@ function Calculator() {
               />
               <label>
                 <input type="checkbox" name="isac" ref={register} />{" "}
-                Axle-to-crown?
+                Axle-to-crown (direct)?
               </label>
             </div>
             <div className="col-4">
               <InputField
                 name="forkoffset"
-                errorMessage="Must be a number"
+                errorMessage={`Must be a number${
+                  isac
+                    ? " that is less than or equal to fork length (when measured axle-to-crown)"
+                    : ""
+                } in magnitude`}
                 errors={errors}
                 register={register}
               />
