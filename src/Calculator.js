@@ -396,6 +396,7 @@ function Calculator() {
             errors={errors}
             register={register}
           />
+          <p className="small">Angle of tube above bend (if any)</p>
         </FieldCol>
         <FieldCol>
           <InputField
@@ -484,7 +485,7 @@ function Calculator() {
             errors={errors}
             register={register}
           />
-          <label>
+          <label className="small">
             <input type="checkbox" name="isac" ref={register} /> Axle-to-crown
             (direct)?
           </label>

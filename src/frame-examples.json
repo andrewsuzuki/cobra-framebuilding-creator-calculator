@@ -1,4 +1,64 @@
 [
-  ["Cannondale CAAD10 56", 73, 73.5, 170, 573, 390, 408, 69],
-  ["Rivendell Atlantis 62", 71.5, 71.5, 250, 653.1, 416.5, 535, 80]
+  ["Cannondale CAAD10 56 (Road race)", 73, 73.5, 170, 573, 390, 408, 69],
+  [
+    "Elephant NFE M (Low-trail road/randonneur)",
+    73,
+    73,
+    170,
+    587,
+    386,
+    435,
+    70
+  ],
+  [
+    "Evil Chamois Hagar XL (Slack gravel)",
+    66.67,
+    74.5,
+    200,
+    631,
+    460,
+    431.86,
+    80
+  ],
+  [
+    "Rivendell Atlantis 62 (Long-chainstay touring / MTB)",
+    71.5,
+    71.5,
+    250,
+    653.1,
+    416.5,
+    535,
+    80
+  ],
+  [
+    "BTR Ranger 29 XXL (Long slack forward-geometry MTB)",
+    64,
+    75,
+    150,
+    672.05,
+    500,
+    426,
+    69.75
+  ],
+  [
+    "Kona Honzo ESD XL (Long slack forward-geometry MTB)",
+    63,
+    77.5,
+    120,
+    652,
+    525,
+    417,
+    62.5
+  ],
+  [
+    "Soma Tradesman Large (Cycle truck / cargo)",
+    69,
+    69.4,
+    350,
+    606,
+    390,
+    455,
+    77
+  ],
+  ["Bicycle Forest BMX (BMX)", 74.5, 70, 92, 342, 397, 325, -40]
 ]
