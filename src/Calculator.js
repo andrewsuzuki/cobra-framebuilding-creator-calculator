@@ -295,6 +295,19 @@ function SelectExample({ onSelect }) {
   );
 }
 
+function FieldCol({ pdm, forPdm = null, notForPdm = null, children }) {
+  return (
+    <div
+      className={classNames("col-4", {
+        "is-hidden":
+          (forPdm && pdm !== forPdm) || (notForPdm && pdm === notForPdm),
+      })}
+    >
+      {children}
+    </div>
+  );
+}
+
 function Calculator() {
   const [pdm, setPdm] = useState(PDM_STACK_REACH);
 
@@ -368,33 +381,33 @@ function Calculator() {
         }}
       />
       <div className="row">
-        <div className="col-4">
+        <FieldCol>
           <InputField
             name="hta"
             errorMessage="Must be a reasonable number in degrees"
             errors={errors}
             register={register}
           />
-        </div>
-        <div className="col-4">
+        </FieldCol>
+        <FieldCol>
           <InputField
             name="sta"
             errorMessage="Must be a reasonable number in degrees"
             errors={errors}
             register={register}
           />
-        </div>
-        <div className="col-4">
+        </FieldCol>
+        <FieldCol>
           <InputField
             name="htlength"
             errorMessage={`Must be a positive number greater than or equal to ${MIN_HT_LENGTH_LARGEST}`}
             errors={errors}
             register={register}
           />
-        </div>
+        </FieldCol>
       </div>
       <div className="row">
-        <div className="col-4">
+        <FieldCol>
           <p>
             <label htmlFor="pdm">Primary Dimensions Mode</label>
             <select
@@ -415,114 +428,98 @@ function Calculator() {
               </option>
             </select>
           </p>
-        </div>
-        {pdm === PDM_STACK_REACH && (
-          <>
-            <div className="col-4">
-              <InputField
-                name="stack"
-                errorMessage="Must be a positive number"
-                errors={errors}
-                register={register}
-              />
-            </div>
-            <div className="col-4">
-              <InputField
-                name="reach"
-                errorMessage="Must be a positive number"
-                errors={errors}
-                register={register}
-              />
-            </div>
-          </>
-        )}
-        {pdm === PDM_FRONT_CENTER && (
-          <div className="col-4">
-            <InputField
-              name="frontcenter"
-              errorMessage="Must be a positive number"
-              errors={errors}
-              register={register}
-            />
-          </div>
-        )}
-        {pdm === PDM_ETT_TAIWANESE && (
-          <div className="col-4">
-            <InputField
-              name="etttaiwanese"
-              errorMessage="Must be a positive number"
-              errors={errors}
-              register={register}
-            />
-          </div>
-        )}
-        {pdm === PDM_ETT_TT && (
-          <>
-            <div className="col-4">
-              <InputField
-                name="etttt"
-                errorMessage="Must be a positive number"
-                errors={errors}
-                register={register}
-              />
-            </div>
-            <div className="col-4">
-              <InputField
-                name="htttoffset"
-                errorMessage="Must be a positive number"
-                errors={errors}
-                register={register}
-              />
-            </div>
-          </>
-        )}
-        {pdm !== PDM_STACK_REACH && (
-          <>
-            <div className="col-4">
-              <InputField
-                name="forklength"
-                errorMessage="Must be a positive number"
-                errors={errors}
-                register={register}
-              />
-              <label>
-                <input type="checkbox" name="isac" ref={register} />{" "}
-                Axle-to-crown (direct)?
-              </label>
-            </div>
-            <div className="col-4">
-              <InputField
-                name="forkoffset"
-                errorMessage={`Must be a number${
-                  isac
-                    ? " that is less than or equal to fork length (when measured axle-to-crown)"
-                    : ""
-                } in magnitude`}
-                errors={errors}
-                register={register}
-              />
-            </div>
-            <div className="col-4">
-              <InputField
-                name="lhsh"
-                errorMessage="Must be a positive number or zero"
-                errors={errors}
-                register={register}
-              />
-            </div>
-          </>
-        )}
+        </FieldCol>
+        <FieldCol pdm={pdm} forPdm={PDM_STACK_REACH}>
+          <InputField
+            name="stack"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} forPdm={PDM_STACK_REACH}>
+          <InputField
+            name="reach"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} forPdm={PDM_FRONT_CENTER}>
+          <InputField
+            name="frontcenter"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} forPdm={PDM_ETT_TAIWANESE}>
+          <InputField
+            name="etttaiwanese"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} forPdm={PDM_ETT_TT}>
+          <InputField
+            name="etttt"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} forPdm={PDM_ETT_TT}>
+          <InputField
+            name="htttoffset"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} notForPdm={PDM_STACK_REACH}>
+          <InputField
+            name="forklength"
+            errorMessage="Must be a positive number"
+            errors={errors}
+            register={register}
+          />
+          <label>
+            <input type="checkbox" name="isac" ref={register} /> Axle-to-crown
+            (direct)?
+          </label>
+        </FieldCol>
+        <FieldCol pdm={pdm} notForPdm={PDM_STACK_REACH}>
+          <InputField
+            name="forkoffset"
+            errorMessage={`Must be a number${
+              isac
+                ? " that is less than or equal to fork length (when measured axle-to-crown)"
+                : ""
+            } in magnitude`}
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
+        <FieldCol pdm={pdm} notForPdm={PDM_STACK_REACH}>
+          <InputField
+            name="lhsh"
+            errorMessage="Must be a positive number or zero"
+            errors={errors}
+            register={register}
+          />
+        </FieldCol>
       </div>
       <div className="row">
-        <div className="col-4">
+        <FieldCol>
           <InputField
             name="cslength"
             errorMessage="Must be a positive number"
             errors={errors}
             register={register}
           />
-        </div>
-        <div className="col-4">
+        </FieldCol>
+        <FieldCol>
           <InputField
             name="bbdrop"
             errorMessage={`Must be a number that is less than or equal to CS length${
@@ -531,7 +528,7 @@ function Calculator() {
             errors={errors}
             register={register}
           />
-        </div>
+        </FieldCol>
       </div>
       <h2>Fixture Setup</h2>
       <Result
