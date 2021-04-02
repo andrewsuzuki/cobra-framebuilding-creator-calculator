@@ -247,7 +247,10 @@ function Result({ label, errors, values, calculate, validate }) {
               {result}&nbsp;
               {bad ? (
                 <span className="text-error">
-                  ✗ {bad !== true ? bad : "Out of range"}
+                  ✗{" "}
+                  {bad !== true
+                    ? bad
+                    : "Outside the limits of the standard configuration, but likely possible with adjustment"}
                 </span>
               ) : (
                 <span className="text-success">✓ Ok</span>
